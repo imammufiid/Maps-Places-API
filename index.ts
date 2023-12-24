@@ -1,7 +1,7 @@
-// src/index.js
-import express, { Express, Request, Response } from "express";
+import express, {Express, Request, Response} from "express";
 import dotenv from "dotenv";
-import * as fs from "fs";
+import {getPlaceDetail} from "./src/google/google.api";
+import {updateFileJson} from "./src/utils/file.generator";
 
 dotenv.config();
 
@@ -9,52 +9,30 @@ const app: Express = express();
 const port = process.env.PORT || 3000;
 
 app.get("/", (req: Request, res: Response) => {
-    res.send("Express + TypeScript Server");
+  res.send("Express + TypeScript Server");
 });
 
-app.get("/places", (req: Request, res: Response) => {
-    let formattedAddress = 'name,rating,user_ratings_total,geometry,reviews'
+app.get("/places", async (req: Request, res: Response) => {
+  try {
+    // MARK: - Example place id
     let placeId = 'ChIJtW3cqwvteC4Ru6i5UG1xSuc'
-    let apiKey = process.env.GOOGLE_MAPS_API_KEY
+    let response = await getPlaceDetail(placeId)
+    updateFileJson(response)
 
-    fetch(`https://maps.googleapis.com/maps/api/place/details/json?fields=${formattedAddress}&place_id=${placeId}&key=${apiKey}`)
-      .then(async (response) => {
-        let responseJson = await response.json()
-        let responseResult = responseJson.result
-        let result = {
-          ...responseResult,
-          placeId: placeId
-        }
-        const jsonString = JSON.stringify(result); // The third parameter (2) specifies the number of spaces for indentation
-        createFileJson(jsonString, responseResult.name)
-        res.send({
-              status: true,
-              message: 'Getting review',
-              data: result
-          })
+    res.send({
+      status: true,
+      message: 'Getting review',
+      data: response
+    })
+  } catch (e) {
+    let message = 'Internal server error'
+    res.status(500)
+      .send({
+        message: message
       })
-      .catch((e) => {
-          console.error(e)
-          res.send({
-              message: e.message
-          })
-      });
+  }
 })
 
-const createFileJson = (data: any, fileName: string) => {
-  // Specify the file path
-  const filePath = `json/${fileName}.json`;
-
-// Write the JSON string to the file
-  fs.writeFile(filePath, data, (err) => {
-    if (err) {
-      console.error('Error writing JSON file:', err);
-    } else {
-      console.log(`JSON file '${filePath}' created successfully.`);
-    }
-  });
-}
-
 app.listen(port, () => {
-    console.log(`[server]: Server is running at http://localhost:${port}`);
+  console.log(`[server]: Server is running at http://localhost:${port}`);
 });
